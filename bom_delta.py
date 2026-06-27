@@ -1,32 +1,48 @@
 import os
-import sys
 import platform
 import subprocess
+import sys
 import time
+
 import pandas as pd
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QLabel, QPushButton,
-    QFileDialog, QWidget, QMessageBox, QCheckBox,
-)
-from PyQt5.QtGui import QIcon
 from openpyxl import load_workbook
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Alignment, Font
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QFileDialog,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 COLUMNS = [
-    'RefDes', 'Part Number', 'Description', 'Producer Abbreviation',
-    'Producer Part Name', 'Validity Flag', 'Validity Flag Remarks',
-    'Case Size', 'Collective Numbers', 'Quantity', 'Placement Side Information',
+    "RefDes",
+    "Part Number",
+    "Description",
+    "Producer Abbreviation",
+    "Producer Part Name",
+    "Validity Flag",
+    "Validity Flag Remarks",
+    "Case Size",
+    "Collective Numbers",
+    "Quantity",
+    "Placement Side Information",
 ]
-OUTPUT_DIR = 'Result'
+OUTPUT_DIR = "Result"
 
 
 def open_file(path):
-    if platform.system() == 'Windows':
+    if platform.system() == "Windows":
         os.startfile(path)
-    elif platform.system() == 'Darwin':
-        subprocess.run(['open', path])
+    elif platform.system() == "Darwin":
+        subprocess.run(["open", path])
     else:
-        subprocess.run(['xdg-open', path])
+        subprocess.run(["xdg-open", path])
 
 
 class BOMComparisonApp(QMainWindow):
@@ -78,10 +94,10 @@ class BOMComparisonApp(QMainWindow):
             label.setText(f"{attr.replace('file', 'BOM File ')}: {os.path.basename(path)}")
 
     def select_file1(self):
-        self._select_file(self.label_file1, 'file1')
+        self._select_file(self.label_file1, "file1")
 
     def select_file2(self):
-        self._select_file(self.label_file2, 'file2')
+        self._select_file(self.label_file2, "file2")
 
     def run_comparison(self):
         if not self.file1 or not self.file2:
@@ -103,26 +119,36 @@ class BOMComparisonApp(QMainWindow):
             QMessageBox.critical(self, "Error", str(e))
 
     def _output_name(self):
-        n1 = os.path.basename(self.file1).split('.')[0].split('_')[-1]
-        n2 = os.path.basename(self.file2).split('.')[0].split('_')[-1]
-        return os.path.join(OUTPUT_DIR, f'BOM_Differences_{n1}_vs_{n2}.xlsx')
+        n1 = os.path.basename(self.file1).split(".")[0].split("_")[-1]
+        n2 = os.path.basename(self.file2).split(".")[0].split("_")[-1]
+        return os.path.join(OUTPUT_DIR, f"BOM_Differences_{n1}_vs_{n2}.xlsx")
 
     def _read_excel(self):
-        df1 = pd.read_excel(self.file1, skiprows=15, skipfooter=7, usecols=COLUMNS).set_index('RefDes')
-        df2 = pd.read_excel(self.file2, skiprows=15, skipfooter=7, usecols=COLUMNS).set_index('RefDes')
+        df1 = pd.read_excel(self.file1, skiprows=15, skipfooter=7, usecols=COLUMNS).set_index(
+            "RefDes"
+        )
+        df2 = pd.read_excel(self.file2, skiprows=15, skipfooter=7, usecols=COLUMNS).set_index(
+            "RefDes"
+        )
         return df1, df2
 
     def _merge_and_filter(self, df1, df2):
-        df = pd.merge(df1, df2, how='outer', left_index=True, right_index=True, suffixes=('_BOM1', '_BOM2'))
+        df = pd.merge(
+            df1, df2, how="outer", left_index=True, right_index=True, suffixes=("_BOM1", "_BOM2")
+        )
         if self.cb_zero_qty.isChecked():
-            df = df[~((df['Quantity_BOM1'] == 0) & (df['Quantity_BOM2'] == 0))]
+            df = df[~((df["Quantity_BOM1"] == 0) & (df["Quantity_BOM2"] == 0))]
         if self.cb_new_zero.isChecked():
-            df = df[~((df['Quantity_BOM2'] == 0) & (df['Quantity_BOM1'].isna()))]
+            df = df[~((df["Quantity_BOM2"] == 0) & (df["Quantity_BOM1"].isna()))]
         if self.cb_dep_zero.isChecked():
-            df = df[~((df['Quantity_BOM1'] == 0) & (df['Quantity_BOM2'].isna()))]
+            df = df[~((df["Quantity_BOM1"] == 0) & (df["Quantity_BOM2"].isna()))]
         if self.cb_unchanged.isChecked():
-            df = df.loc[~(df.filter(like='_BOM1').fillna('').values ==
-                          df.filter(like='_BOM2').fillna('').values).all(axis=1)]
+            df = df.loc[
+                ~(
+                    df.filter(like="_BOM1").fillna("").values
+                    == df.filter(like="_BOM2").fillna("").values
+                ).all(axis=1)
+            ]
         return df.sort_index()
 
     def _handle_existing(self, output_file):
@@ -134,31 +160,32 @@ class BOMComparisonApp(QMainWindow):
         box.setInformativeText("What would you like to do?")
         btn_overwrite = box.addButton("Overwrite", QMessageBox.AcceptRole)
         btn_rename = box.addButton("Rename", QMessageBox.ActionRole)
-        btn_cancel = box.addButton("Cancel", QMessageBox.RejectRole)
+        box.addButton("Cancel", QMessageBox.RejectRole)
         box.exec_()
         clicked = box.clickedButton()
         if clicked == btn_overwrite:
             return output_file
         if clicked == btn_rename:
             ts = time.strftime("%d.%m.%y_%H%M")
-            base = os.path.basename(output_file).split('.')[0]
-            return os.path.join(OUTPUT_DIR, f'{base}_{ts}.xlsx')
+            base = os.path.basename(output_file).split(".")[0]
+            return os.path.join(OUTPUT_DIR, f"{base}_{ts}.xlsx")
         QMessageBox.information(self, "Cancelled", "Operation cancelled.")
         return None
 
     def _write_excel(self, output_file, df1, df2, df_merged):
         while True:
             try:
-                with pd.ExcelWriter(output_file, mode='w') as writer:
-                    pd.concat([df1, df2], axis=1, join='outer').sort_index().to_excel(
-                        writer, sheet_name='Side by Side Comparison')
-                    df_merged.to_excel(writer, sheet_name='BOM Delta')
+                with pd.ExcelWriter(output_file, mode="w") as writer:
+                    pd.concat([df1, df2], axis=1, join="outer").sort_index().to_excel(
+                        writer, sheet_name="Side by Side Comparison"
+                    )
+                    df_merged.to_excel(writer, sheet_name="BOM Delta")
                 break
             except PermissionError:
                 box = QMessageBox(self)
                 box.setWindowTitle("Permission Error")
                 box.setText("File is open in another process. Close it and retry.")
-                btn_retry = box.addButton("Retry", QMessageBox.AcceptRole)
+                box.addButton("Retry", QMessageBox.AcceptRole)
                 btn_cancel = box.addButton("Cancel", QMessageBox.RejectRole)
                 box.exec_()
                 if box.clickedButton() == btn_cancel:
@@ -167,23 +194,23 @@ class BOMComparisonApp(QMainWindow):
 
     def _format_excel(self, output_file):
         wb = load_workbook(output_file)
-        ws = wb['Side by Side Comparison']
+        ws = wb["Side by Side Comparison"]
         ws.insert_rows(1)
-        ws.merge_cells('B1:I1')
-        ws.merge_cells('J1:Q1')
-        ws['B1'], ws['J1'] = 'BOM1', 'BOM2'
-        for cell in [ws['B1'], ws['J1']]:
+        ws.merge_cells("B1:I1")
+        ws.merge_cells("J1:Q1")
+        ws["B1"], ws["J1"] = "BOM1", "BOM2"
+        for cell in [ws["B1"], ws["J1"]]:
             cell.font = Font(bold=True)
-            cell.alignment = Alignment(horizontal='center')
-        ws.auto_filter.ref = 'A2:U2'
+            cell.alignment = Alignment(horizontal="center")
+        ws.auto_filter.ref = "A2:U2"
         wb.save(output_file)
         open_file(output_file)
 
     def _write_refdes_txt(self, df_merged):
-        n1 = os.path.basename(self.file1).split('.')[0]
-        n2 = os.path.basename(self.file2).split('.')[0]
-        txt_path = os.path.join(OUTPUT_DIR, f'RefDesList_{n1}_vs_{n2}.txt')
-        with open(txt_path, 'w') as f:
+        n1 = os.path.basename(self.file1).split(".")[0]
+        n2 = os.path.basename(self.file2).split(".")[0]
+        txt_path = os.path.join(OUTPUT_DIR, f"RefDesList_{n1}_vs_{n2}.txt")
+        with open(txt_path, "w") as f:
             f.writelines(f"{r}\n" for r in df_merged.index)
 
 
